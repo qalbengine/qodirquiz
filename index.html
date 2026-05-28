@@ -83,8 +83,23 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function shuffleQuestion(q) {
+  // Shuffle options but track correct answer (always index 0 in original)
+  var opts = q.opts.slice();
+  var indices = opts.map(function(_, i) { return i; });
+  // Fisher-Yates on indices
+  for (var i = indices.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = indices[i]; indices[i] = indices[j]; indices[j] = t;
+  }
+  var newOpts = indices.map(function(i) { return opts[i]; });
+  var correctPos = indices.indexOf(0); // where did index 0 end up?
+  return { q: q.q, opts: newOpts, correct: correctPos };
+}
+
 function init() {
-  shuffled = shuffle(ALL_QUESTIONS);
+  var base = shuffle(ALL_QUESTIONS);
+  shuffled = base.map(function(q) { return shuffleQuestion(q); });
   pageIndex = 0;
   answers = new Array(shuffled.length).fill(null);
   done = false;
@@ -127,7 +142,7 @@ function render() {
   var correctSoFar = 0, wrongSoFar = 0, remaining = 0;
   for (var i = 0; i < answers.length; i++) {
     if (answers[i] === null) remaining++;
-    else if (answers[i] === 0) correctSoFar++;
+    else if (answers[i] === shuffled[i].correct) correctSoFar++;
     else wrongSoFar++;
   }
   var progressPct = Math.round((shuffled.length - remaining) / shuffled.length * 100);
@@ -154,15 +169,15 @@ function render() {
     for (var oi = 0; oi < q.opts.length; oi++) {
       var cls = "opt-btn";
       if (isAns) {
-        if (oi === 0) cls += " correct";
+        if (oi === q.correct) cls += " correct";
         else if (oi === ans) cls += " wrong";
       }
       html += "<button class=\"" + cls + "\" " + (isAns ? "disabled" : "") + " onclick=\"answer(" + gi + "," + oi + ")\"><span class=\"opt-letter\">" + letters[oi] + "</span><span>" + esc(q.opts[oi]) + "</span></button>";
     }
     html += "</div>";
     if (isAns) {
-      if (ans === 0) html += "<div class=\"feedback ok show\">To&apos;g&apos;ri javob!</div>";
-      else html += "<div class=\"feedback err show\">Noto&apos;g&apos;ri. To&apos;g&apos;ri: " + esc(q.opts[0]) + "</div>";
+      if (ans === q.correct) html += "<div class=\"feedback ok show\">To&apos;g&apos;ri javob!</div>";
+      else html += "<div class=\"feedback err show\">Noto&apos;g&apos;ri. To&apos;g&apos;ri: " + esc(q.opts[q.correct]) + "</div>";
     }
     html += "</div>";
   }
@@ -177,7 +192,7 @@ function render() {
 function buildResult() {
   var correct = 0, wrong = 0;
   for (var i = 0; i < answers.length; i++) {
-    if (answers[i] === 0) correct++;
+    if (answers[i] === shuffled[i].correct) correct++;
     else if (answers[i] !== null) wrong++;
   }
   var pct = Math.round(correct / shuffled.length * 100);
